@@ -5,6 +5,7 @@ import {
   type RamLoad,
   type ServerInfo,
   type StorageLoad,
+  type StorageTemperature,
   urlJoin,
 } from '@dashdot/common';
 import { useEffect, useState } from 'react';
@@ -27,6 +28,8 @@ export const usePageData = () => {
   const [networkLoad, setNetworkLoad] = useState<NetworkLoad[]>([]);
   const [gpuLoad, setGpuLoad] = useState<GpuLoad[]>([]);
   const [storageLoad, setStorageLoad] = useState<StorageLoad>();
+  const [storageTemperature, setStorageTemperature] =
+    useState<StorageTemperature>();
 
   const config = serverInfo?.config;
 
@@ -98,6 +101,10 @@ export const usePageData = () => {
       socket.on('storage-load', (data) => {
         setStorageLoad(data);
       });
+
+      socket.on('storage-temperature', (data) => {
+        setStorageTemperature(data);
+      });
     }
 
     return () => {
@@ -127,5 +134,6 @@ export const usePageData = () => {
     networkLoad,
     gpuLoad,
     storageLoad,
+    storageTemperature,
   };
 };

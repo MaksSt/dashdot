@@ -51,6 +51,7 @@ export const CONFIG: Config = {
   always_show_percentages: penv('ALWAYS_SHOW_PERCENTAGES') === 'true',
   enable_cpu_temps: penv('ENABLE_CPU_TEMPS') === 'true',
   cpu_temps_mode: (penv('CPU_TEMPS_MODE') as any) ?? 'avg',
+  enable_storage_temps: penv('ENABLE_STORAGE_TEMPS') === 'true',
   gpu_brand_filter: lst(penv('GPU_BRAND_FILTER') ?? ''),
   gpu_model_filter: lst(penv('GPU_MODEL_FILTER') ?? ''),
 
@@ -62,7 +63,7 @@ export const CONFIG: Config = {
     penv('CPU_LABEL_LIST') ?? 'brand,model,cores,threads,frequency',
   ) as any[],
   storage_label_list: lst(
-    penv('STORAGE_LABEL_LIST') ?? 'brand,type,size,raid',
+    penv('STORAGE_LABEL_LIST') ?? 'brand,type,size,temperature,raid',
   ) as any[],
   ram_label_list: lst(
     penv('RAM_LABEL_LIST') ?? 'brand,type,size,frequency',

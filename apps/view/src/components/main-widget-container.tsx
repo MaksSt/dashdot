@@ -76,6 +76,7 @@ export const MainWidgetContainer: FC = () => {
     config,
     cpuLoad,
     storageLoad,
+    storageTemperature,
     ramLoad,
     networkLoad,
     gpuLoad,
@@ -186,6 +187,9 @@ export const MainWidgetContainer: FC = () => {
                   data={currentConfig.data}
                   // @ts-expect-error
                   load={currentConfig.load}
+                  temperature={
+                    widget === 'storage' ? storageTemperature : undefined
+                  }
                   config={config}
                 />
               </GlassPane>

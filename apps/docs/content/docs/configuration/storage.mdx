@@ -11,10 +11,19 @@ tags:
 
 Selects which data is shown in the storage widget.
 
-The available options are: `brand`, `size`, `type`.
+The available options are: `brand`, `size`, `type`, `temperature`, `raid`.
 
 - type: `string (comma separated list)`
-- default: `brand,size,type`
+- default: `brand,type,size,temperature,raid`
+
+### `DASHDOT_ENABLE_STORAGE_TEMPS`
+
+Shows the current NVMe Composite temperature in the storage widget. On Linux,
+dash. reads the sensor from `/sys/class/nvme`, so the host `/sys` directory must
+be mounted into the container.
+
+- type: `boolean`
+- default: `false`
 
 ### `DASHDOT_FS_DEVICE_FILTER`
 

@@ -112,6 +112,9 @@ server.listen(CONFIG.port, async () => {
     router.get('/load/storage', async (_, res) => {
       res.send(await obs.storage.getCurrentValue());
     });
+    router.get('/load/storage-temperature', async (_, res) => {
+      res.send(await obs.storageTemperature.getCurrentValue());
+    });
     router.get('/load/network', async (_, res) => {
       res.send(await obs.network.getCurrentValue());
     });
@@ -145,6 +148,12 @@ server.listen(CONFIG.port, async () => {
     subscriptions.push(
       obs.storage.subscribe(async (storage) => {
         socket.emit('storage-load', storage);
+      }),
+    );
+
+    subscriptions.push(
+      obs.storageTemperature.subscribe((temperature) => {
+        socket.emit('storage-temperature', temperature);
       }),
     );
 

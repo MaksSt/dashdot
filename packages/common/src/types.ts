@@ -41,6 +41,7 @@ export type StorageInfo = {
   }[];
 }[];
 export type StorageLoad = number[];
+export type StorageTemperature = (number | null)[];
 
 export type NetworkInfo = {
   interfaceSpeed: number;
@@ -112,6 +113,7 @@ export type Config = {
   always_show_percentages: boolean;
   enable_cpu_temps: boolean;
   cpu_temps_mode: 'max' | 'avg';
+  enable_storage_temps: boolean;
   gpu_brand_filter: string[];
   gpu_model_filter: string[];
 
@@ -119,7 +121,7 @@ export type Config = {
   widget_list: ('os' | 'cpu' | 'storage' | 'ram' | 'network' | 'gpu')[];
   os_label_list: ('os' | 'arch' | 'up_since' | 'dash_version')[];
   cpu_label_list: ('brand' | 'model' | 'cores' | 'threads' | 'frequency')[];
-  storage_label_list: ('brand' | 'size' | 'type' | 'raid')[];
+  storage_label_list: ('brand' | 'size' | 'type' | 'temperature' | 'raid')[];
   ram_label_list: ('brand' | 'size' | 'type' | 'frequency')[];
   network_label_list: (
     | 'type'

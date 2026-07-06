@@ -1,4 +1,9 @@
-import type { Config, StorageInfo, StorageLoad } from '@dashdot/common';
+import type {
+  Config,
+  StorageInfo,
+  StorageLoad,
+  StorageTemperature,
+} from '@dashdot/common';
 import { faHdd } from '@fortawesome/free-solid-svg-icons';
 import type { Variants } from 'framer-motion';
 import { type FC, useMemo, useState } from 'react';
@@ -18,7 +23,7 @@ import { ThemedText } from '../components/text';
 import { WidgetSwitch } from '../components/widget-switch';
 import { useIsMobile } from '../services/mobile';
 import { useSetting } from '../services/settings';
-import { bytePrettyPrint } from '../utils/calculations';
+import { bytePrettyPrint, celsiusToFahrenheit } from '../utils/calculations';
 import { toInfoTable } from '../utils/format';
 
 const itemVariants: Variants = {
@@ -310,12 +315,14 @@ export const StorageChart: FC<StorageChartProps> = ({
 
 type StorageWidgetProps = {
   load?: StorageLoad;
+  temperature?: StorageTemperature;
   data: StorageInfo;
   config: Config;
 };
 
 export const StorageWidget: FC<StorageWidgetProps> = ({
   load,
+  temperature,
   data,
   config,
 }) => {
@@ -333,8 +340,11 @@ export const StorageWidget: FC<StorageWidgetProps> = ({
       const typeShown = config.storage_label_list.includes('type');
       const sizeShown = config.storage_label_list.includes('size');
       const raidShown = config.storage_label_list.includes('raid');
+      const temperatureShown =
+        config.enable_storage_temps &&
+        config.storage_label_list.includes('temperature');
 
-      return shownData.map((s) => {
+      return shownData.map((s, index) => {
         const brand = s.virtual
           ? s.disks[0].brand
           : removeDuplicates(
@@ -349,6 +359,15 @@ export const StorageWidget: FC<StorageWidgetProps> = ({
             );
         const size = s.size;
         const raidGroup = s.raidLabel;
+        const currentTemperature = temperature?.[index];
+        const formattedTemperature =
+          currentTemperature == null
+            ? undefined
+            : `${
+                config.use_imperial
+                  ? celsiusToFahrenheit(currentTemperature).toFixed(1)
+                  : currentTemperature.toFixed(1)
+              } ${config.use_imperial ? '°F' : '°C'}`;
 
         return {
           label: s.virtual
@@ -359,6 +378,7 @@ export const StorageWidget: FC<StorageWidgetProps> = ({
           value: [
             brandShown || typeShown ? brand : undefined,
             sizeShown ? bytePrettyPrint(size) : undefined,
+            temperatureShown ? formattedTemperature : undefined,
           ]
             .filter((x) => x)
             .join('\n=> '),
@@ -373,20 +393,41 @@ export const StorageWidget: FC<StorageWidgetProps> = ({
         shownData[0]?.disks?.map(({ type }) => type),
       );
       const isRaid = shownData[0]?.raidLabel != null;
+      const currentTemperature = temperature?.[0];
+      const formattedTemperature =
+        currentTemperature == null
+          ? undefined
+          : `${
+              config.use_imperial
+                ? celsiusToFahrenheit(currentTemperature).toFixed(1)
+                : currentTemperature.toFixed(1)
+            } ${config.use_imperial ? '°F' : '°C'}`;
 
       return toInfoTable(
-        isRaid
-          ? config.storage_label_list
-          : config.storage_label_list.filter((x) => x !== 'raid'),
+        config.storage_label_list.filter(
+          (label) =>
+            (isRaid || label !== 'raid') &&
+            (config.enable_storage_temps || label !== 'temperature'),
+        ),
         {
           brand: { label: 'Brand', value: brand },
           size: { label: 'Size', value: size ? bytePrettyPrint(size) : '' },
           type: { label: 'Type', value: type },
+          temperature: {
+            label: 'Temperature',
+            value: formattedTemperature,
+          },
           raid: { label: 'Raid', value: shownData[0]?.raidLabel },
         },
       );
     }
-  }, [config.storage_label_list, shownData]);
+  }, [
+    config.enable_storage_temps,
+    config.storage_label_list,
+    config.use_imperial,
+    shownData,
+    temperature,
+  ]);
 
   return (
     <HardwareInfoContainer

@@ -2,6 +2,7 @@
   "pages": [
     "docker",
     "docker-compose",
+    "podman",
     "from-source",
     "helm"
   ]

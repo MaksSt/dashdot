@@ -87,6 +87,40 @@ install options instead (`docker-compose`, or from source), have a look at the
 
 To read more about configuration options, you can visit the [configuration options](https://getdashdot.com/docs/configuration).
 
+## GitHub Container Image
+
+The fork image with NVMe temperature monitoring is published in
+[GitHub Packages](https://github.com/MaksSt/dashdot/pkgs/container/dashdot):
+
+```bash
+podman pull ghcr.io/maksst/dashdot:latest
+```
+
+After the first successful GitHub Actions build, the package must have
+**Public** visibility to allow pulling it without authentication.
+
+## Podman on Proxmox
+
+```bash
+podman rm -f dashdot 2>/dev/null || true
+
+podman run -d \
+  --name dashdot \
+  --privileged \
+  --restart=always \
+  -p 3001:3001 \
+  -v /:/mnt/host:ro \
+  -v /sys:/sys:ro \
+  -v /dev:/dev:ro \
+  -v /run/udev:/run/udev:ro \
+  -e DASHDOT_ENABLE_CPU_TEMPS=true \
+  -e DASHDOT_CPU_TEMPS_MODE=max \
+  -e DASHDOT_ENABLE_STORAGE_TEMPS=true \
+  ghcr.io/maksst/dashdot:latest
+```
+
+The `/sys` mount is required for the NVMe Composite temperature sensor.
+
 ## Developer Notice
 
 > Note: Due to the consistently growing size of the `.git` folder, which was

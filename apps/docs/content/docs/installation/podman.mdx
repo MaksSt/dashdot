@@ -1,0 +1,58 @@
+---
+title: Podman on Proxmox
+description: Run the GitHub Container Registry image with Podman on Proxmox
+tags:
+  - Installation
+  - Configuration
+  - Podman
+  - Proxmox
+---
+
+The fork image with NVMe temperature monitoring is available from
+[GitHub Packages](https://github.com/MaksSt/dashdot/pkgs/container/dashdot).
+
+```bash
+podman pull ghcr.io/maksst/dashdot:latest
+```
+
+After the first successful GitHub Actions build, set the package visibility to
+**Public** if the image must be available without GitHub authentication.
+
+## Run on Proxmox
+
+```bash
+podman rm -f dashdot 2>/dev/null || true
+
+podman run -d \
+  --name dashdot \
+  --privileged \
+  --restart=always \
+  -p 3001:3001 \
+  -v /:/mnt/host:ro \
+  -v /sys:/sys:ro \
+  -v /dev:/dev:ro \
+  -v /run/udev:/run/udev:ro \
+  -e DASHDOT_ENABLE_CPU_TEMPS=true \
+  -e DASHDOT_CPU_TEMPS_MODE=max \
+  -e DASHDOT_ENABLE_STORAGE_TEMPS=true \
+  ghcr.io/maksst/dashdot:latest
+```
+
+The host mounts provide:
+
+- `/mnt/host` for filesystem usage data
+- `/sys` for CPU and NVMe Composite temperature sensors
+- `/dev` and `/run/udev` for storage device discovery
+
+The container is privileged because dash. reads hardware and host-level system
+information. The dashboard is available at `http://<PROXMOX_IP>:3001`.
+
+## Update
+
+```bash
+podman pull ghcr.io/maksst/dashdot:latest
+podman rm -f dashdot
+```
+
+Run the command from the previous section again to recreate the container with
+the new image.

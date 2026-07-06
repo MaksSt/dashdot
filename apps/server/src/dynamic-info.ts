@@ -151,6 +151,15 @@ export const getDynamicServerInfo = () => {
     getStorageInfo.dynamic,
   );
 
+  const storageTemperatureObs = new LazyObservable(
+    'Storage temperature',
+    CONFIG.widget_list.includes('storage') && CONFIG.enable_storage_temps,
+    runInBackground,
+    1,
+    CONFIG.storage_poll_interval,
+    getStorageInfo.temperature,
+  );
+
   const networkObs = new LazyObservable(
     'Network',
     CONFIG.widget_list.includes('network'),
@@ -193,6 +202,7 @@ export const getDynamicServerInfo = () => {
     cpu: cpuObs,
     ram: ramObs,
     storage: storageObs,
+    storageTemperature: storageTemperatureObs,
     network: networkObs,
     gpu: gpuObs,
     speedTest: speedTestObs,

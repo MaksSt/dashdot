@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   version:
+    if: ${{ github.repository == 'MauriceNino/dashdot' }}
     runs-on: ubuntu-latest
     outputs:
       package_version: ${{ steps.version.outputs.package_version }}
