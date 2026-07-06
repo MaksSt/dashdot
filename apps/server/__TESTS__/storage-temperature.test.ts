@@ -1,6 +1,7 @@
 import type { StorageInfo } from '@dashdot/common';
 import { expect } from 'chai';
 import {
+  getNvmeControllerFromPath,
   getNvmeControllerName,
   mapNvmeTemperatures,
 } from '../src/data/storage/temperature';
@@ -48,6 +49,17 @@ describe('Storage temperature', () => {
     expect(getNvmeControllerName('nvme0n1')).to.equal('nvme0');
     expect(getNvmeControllerName('/dev/nvme12n3')).to.equal('nvme12');
     expect(getNvmeControllerName('sda')).to.equal(undefined);
+  });
+
+  it('extracts the NVMe controller from a resolved hwmon path', () => {
+    expect(
+      getNvmeControllerFromPath(
+        '/sys/devices/pci0000:00/0000:01:00.0/nvme/nvme0/hwmon/hwmon2',
+      ),
+    ).to.equal('nvme0');
+    expect(
+      getNvmeControllerFromPath('/sys/devices/platform/coretemp.0'),
+    ).to.equal(undefined);
   });
 
   it('maps temperatures to storage entries and uses the hottest RAID disk', async () => {
