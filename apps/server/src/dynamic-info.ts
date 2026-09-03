@@ -23,7 +23,7 @@ import getRamInfo from './data/ram';
 import getStorageInfo from './data/storage';
 import { loadInfo } from './static-info';
 
-class LazyObservable<T> implements Subscribable<T> {
+export class LazyObservable<T> implements Subscribable<T> {
   private observers: Array<Partial<Observer<any>> | ((value: any) => void)> =
     [];
 
@@ -39,7 +39,7 @@ class LazyObservable<T> implements Subscribable<T> {
     private intervalMs: number,
     private dataFactory: () => Promise<T>,
   ) {
-    if (this.runInBackground) {
+    if (this.enabled && this.runInBackground) {
       this.tryStart();
     }
   }
@@ -62,6 +62,8 @@ class LazyObservable<T> implements Subscribable<T> {
   }
 
   public async getCurrentValue(): Promise<T | undefined> {
+    if (!this.enabled) return undefined;
+
     try {
       if (this.currentBuffer) {
         return await lastValueFrom(
