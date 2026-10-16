@@ -196,7 +196,11 @@ export const MainWidgetContainer: FC = () => {
           {advanced ? 'Normal' : 'Advanced'}
         </ModeButton>
         {advanced ? (
-          <AdvancedDashboard config={config} socket={historySocket} />
+          <AdvancedDashboard
+            config={config}
+            socket={historySocket}
+            os={osData}
+          />
         ) : (
           <FlexContainer
             $mobile={isMobile}

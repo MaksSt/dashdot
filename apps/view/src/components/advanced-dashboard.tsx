@@ -3,7 +3,10 @@ import {
   HISTORY_RETENTION_MS,
   type HistoryMetric,
   type HistoryPoint,
+  type OsInfo,
 } from '@dashdot/common';
+import { theme as antdTheme, ConfigProvider, DatePicker } from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
 import {
   type FC,
   useCallback,
@@ -25,7 +28,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { Socket } from 'socket.io-client';
-import styled, { useTheme } from 'styled-components';
+import styled, { createGlobalStyle, useTheme } from 'styled-components';
 import { useHistory } from '../services/history';
 
 const HOUR = 3_600_000;
@@ -51,11 +54,26 @@ const Dashboard = styled.main`
   h1 { font-size: clamp(26px, 3vw, 36px); font-weight: 650; letter-spacing: -0.04em; }
   h2 { font-size: 18px; font-weight: 600; }
   p { font-size: 13px; }
+  .recharts-surface:focus:not(:focus-visible),
+  .recharts-wrapper:focus:not(:focus-visible) { outline: none; }
+  .recharts-surface:focus-visible,
+  .recharts-wrapper:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.text}; outline-offset: -2px;
+  }
 `;
 const Eyebrow = styled.p`
   text-transform: uppercase; letter-spacing: 0.15em; font-size: 11px !important; font-weight: 650;
 `;
 const Muted = styled.p`opacity: 0.8;`;
+const SystemHeader = styled.header`
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px;
+  h1 { font-size: clamp(23px, 3vw, 32px); margin-top: 4px; overflow-wrap: anywhere; }
+`;
+const SystemDetails = styled.dl`
+  display: flex; flex-wrap: wrap; gap: 12px 32px;
+  dt { font-size: 11px; opacity: 0.8; margin-bottom: 4px; }
+  dd { margin: 0; font-size: 14px; font-weight: 550; font-variant-numeric: tabular-nums; }
+`;
 const Toolbar = styled.div`
   display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;
 `;
@@ -95,7 +113,6 @@ const Values = styled.div`
 `;
 const PlotFrame = styled.div`
   height: 235px; width: 100%; position: relative; user-select: none;
-  .recharts-surface { outline-offset: -2px; }
   @media (max-width: 749px) { height: 215px; }
 `;
 const Empty = styled.div`
@@ -111,24 +128,64 @@ const Notice = styled.p`
   padding: 12px 16px; border: 1px solid ${({ theme }) => theme.colors.text}44;
   border-radius: 12px; background: ${({ theme }) => theme.colors.surface}cc;
 `;
-const RangeInput = styled.input`
-  min-height: 40px; max-width: 100%; border: 1px solid ${({ theme }) => theme.colors.text}55;
-  background: ${({ theme }) => theme.colors.surface}; color: ${({ theme }) => theme.colors.text};
-  border-radius: 9px; padding: 7px 10px; font: inherit; font-size: 12px;
-  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.text}; }
+const RangeFields = styled.div`
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end; gap: 12px; max-width: 780px; margin: 18px 0 8px;
+  > button { min-height: 46px; padding-inline: 20px; }
+  @media (max-width: 649px) { grid-template-columns: minmax(0, 1fr); }
+`;
+const DateField = styled.label`
+  display: flex; flex-direction: column; gap: 7px; min-width: 0;
+  > span { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; opacity: 0.8; }
+`;
+const RangeInput = styled(DatePicker<Dayjs>)`
+  width: 100%; min-height: 46px; padding: 10px 13px;
+  background: ${({ theme }) => theme.colors.text}06;
+  border-color: ${({ theme }) => theme.colors.text}44;
+  input { font-variant-numeric: tabular-nums; }
+  &:focus-within { outline: 2px solid ${({ theme }) => theme.colors.text}; outline-offset: 2px; }
+  @media (max-width: 749px) { input { font-size: 16px; } }
+`;
+const CalendarStyle = createGlobalStyle`
+  .history-date-popup .ant-picker-header button { min-width: 32px; }
+  @media (max-width: 649px) {
+    .history-date-popup .ant-picker-datetime-panel { flex-direction: column; }
+    .history-date-popup .ant-picker-time-panel {
+      width: 100%; border-inline-start: 0;
+      border-top: 1px solid ${({ theme }) => theme.colors.text}33;
+    }
+    .history-date-popup .ant-picker-time-panel .ant-picker-content { height: 132px; }
+    .history-date-popup .ant-picker-time-panel-column { flex: 1; }
+  }
 `;
 const timeLabel = (time: number, long = false) =>
   new Date(time).toLocaleString(
     undefined,
     long
-      ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
-      : { hour: '2-digit', minute: '2-digit' },
+      ? {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }
+      : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
   );
 const localInput = (time: number) => {
   const date = new Date(time);
   return new Date(time - date.getTimezoneOffset() * 60_000)
     .toISOString()
     .slice(0, 16);
+};
+const parseRangeDate = (value: FormDataEntryValue | null) => {
+  const match = String(value).match(
+    /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})$/,
+  );
+  return match
+    ? new Date(
+        `${match[3]}-${match[2]}-${match[1]}T${match[4]}:${match[5]}`,
+      ).getTime()
+    : Number.NaN;
 };
 const toPlot = (points: HistoryPoint[]): PlotPoint[] =>
   points.map((point) => ({
@@ -317,7 +374,8 @@ const HistoryPlot: FC<{
 export const AdvancedDashboard: FC<{
   config: Config;
   socket: Socket | undefined;
-}> = ({ config, socket }) => {
+  os: OsInfo | undefined;
+}> = ({ config, socket, os }) => {
   const theme = useTheme();
   const [window, setWindow] = useState<Window>(() => ({
     from: Date.now() - HOUR,
@@ -329,6 +387,15 @@ export const AdvancedDashboard: FC<{
   const [rangeError, setRangeError] = useState<string>();
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [uptime, setUptime] = useState(os?.uptime ?? 0);
+  useEffect(() => {
+    const started = Date.now();
+    setUptime(os?.uptime ?? 0);
+    const timer = setInterval(() => {
+      setUptime((os?.uptime ?? 0) + (Date.now() - started) / 1000);
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [os?.uptime]);
   const history = useHistory(socket, { ...window, points: 1200 });
   const overview = useHistory(socket, {
     from: overviewEnd - HISTORY_RETENTION_MS,
@@ -478,14 +545,29 @@ export const AdvancedDashboard: FC<{
 
   return (
     <Dashboard aria-label="Advanced system history">
-      <header>
-        <Eyebrow>Advanced · System history</Eyebrow>
-        <h1>A closer look at your server</h1>
-        <Muted>
-          Temperature, load and traffic on one timeline. Up to 24 hours of
-          recorded history.
-        </Muted>
-      </header>
+      <CalendarStyle />
+      <SystemHeader>
+        <div>
+          <Eyebrow>OS</Eyebrow>
+          <h1>
+            {config.override.os ?? (os ? `${os.distro} ${os.release}` : '—')}
+          </h1>
+        </div>
+        <SystemDetails>
+          <div>
+            <dt>Architecture</dt>
+            <dd>{config.override.arch ?? os?.arch ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>Uptime</dt>
+            <dd>
+              {os?.uptime
+                ? `${Math.floor(uptime / 86_400)}d ${Math.floor((uptime % 86_400) / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`
+                : '—'}
+            </dd>
+          </div>
+        </SystemDetails>
+      </SystemHeader>
       <Toolbar>
         <Controls aria-label="History period">
           {periods.map(([name, duration]) => (
@@ -564,9 +646,6 @@ export const AdvancedDashboard: FC<{
           </time>
           {history.loading ? ' · Updating…' : ''}
         </Muted>
-        <Muted>
-          Drag a graph to zoom · Ctrl/⌘ + wheel · Double-click to reset
-        </Muted>
       </Toolbar>
       {history.error && (
         <Notice role="alert">
@@ -580,10 +659,7 @@ export const AdvancedDashboard: FC<{
         <Notice role="status">{history.data.warning}</Notice>
       )}
       {!history.loading && !history.error && !points.length && (
-        <Notice role="status">
-          History is accumulating. The first readings appear within 10 seconds.
-          Earlier readings are available only after they have been recorded.
-        </Notice>
+        <Notice role="status">Waiting for readings…</Notice>
       )}
       <Grid>
         <HistoryPlot
@@ -631,7 +707,9 @@ export const AdvancedDashboard: FC<{
         <CardHeader>
           <h2>Timeline</h2>
           <Muted>
-            Move the handles to select a range, or drag the selection to pan.
+            {overview.data?.earliest
+              ? `Since ${timeLabel(overview.data.earliest, true)} · 10 s interval`
+              : 'Waiting for readings…'}
           </Muted>
         </CardHeader>
         {overviewPoints.length > 1 ? (
@@ -670,81 +748,96 @@ export const AdvancedDashboard: FC<{
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <Muted>
-            Recorded history will appear here as readings accumulate.
-          </Muted>
+          <Muted>No history yet.</Muted>
         )}
-        <Toolbar>
-          <Muted>
-            {overview.data?.earliest
-              ? `Recording since ${timeLabel(overview.data.earliest, true)} · Sample interval 10 s`
-              : 'Waiting for the first readings'}
-          </Muted>
-          <Muted>
-            CPU and memory are percentages. Traffic is the interface transfer
-            rate.
-          </Muted>
-        </Toolbar>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const fields = new FormData(event.currentTarget);
-            const from = new Date(String(fields.get('from'))).getTime(),
-              to = new Date(String(fields.get('to'))).getTime(),
-              now = Date.now();
-            if (
-              !Number.isFinite(from) ||
-              !Number.isFinite(to) ||
-              to - from < MIN_WINDOW ||
-              from < now - HISTORY_RETENTION_MS - 60_000 ||
-              to > now
-            ) {
-              setRangeError(
-                'Choose at least 1 minute within the last 24 hours.',
-              );
-              return;
-            }
-            selectWindow({ from, to });
+        <ConfigProvider
+          theme={{
+            algorithm: theme.dark
+              ? antdTheme.darkAlgorithm
+              : antdTheme.defaultAlgorithm,
+            token: {
+              colorPrimary: colors.cpu,
+              colorBgContainer: theme.colors.surface,
+              colorBgElevated: theme.colors.surface,
+              colorText: theme.colors.text,
+              borderRadius: 12,
+              controlHeight: 46,
+            },
+            components: {
+              DatePicker: {
+                cellWidth: 36,
+                cellHeight: 32,
+                timeCellHeight: 32,
+                timeColumnWidth: 56,
+              },
+            },
           }}
         >
-          <Controls style={{ marginTop: 16 }}>
-            <label htmlFor="history-from">
-              From{' '}
-              <RangeInput
-                id="history-from"
-                name="from"
-                type="datetime-local"
-                aria-label="Range start"
-                required
-                min={localInput(Date.now() - HISTORY_RETENTION_MS)}
-                max={localInput(Date.now())}
-                value={customFrom || localInput(window.from)}
-                onInput={(event) => setCustomFrom(event.currentTarget.value)}
-              />
-            </label>
-            <label htmlFor="history-to">
-              To{' '}
-              <RangeInput
-                id="history-to"
-                name="to"
-                type="datetime-local"
-                aria-label="Range end"
-                required
-                min={localInput(Date.now() - HISTORY_RETENTION_MS)}
-                max={localInput(Date.now())}
-                value={customTo || localInput(window.to)}
-                onInput={(event) => setCustomTo(event.currentTarget.value)}
-              />
-            </label>
-            <Control type="submit">Apply range</Control>
-          </Controls>
-          {rangeError && <p role="alert">{rangeError}</p>}
-        </form>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const fields = new FormData(event.currentTarget);
+              const from = parseRangeDate(fields.get('from')),
+                to = parseRangeDate(fields.get('to')),
+                now = Date.now();
+              if (
+                !Number.isFinite(from) ||
+                !Number.isFinite(to) ||
+                to - from < MIN_WINDOW ||
+                from < now - HISTORY_RETENTION_MS - 60_000 ||
+                to > now
+              ) {
+                setRangeError(
+                  'Choose at least 1 minute within the last 24 hours.',
+                );
+                return;
+              }
+              selectWindow({ from, to });
+            }}
+          >
+            <RangeFields>
+              <DateField htmlFor="history-from">
+                <span>From</span>
+                <RangeInput
+                  id="history-from"
+                  name="from"
+                  aria-label="Range start"
+                  format="DD.MM.YYYY HH:mm"
+                  showTime={{ format: 'HH:mm', use12Hours: false }}
+                  classNames={{ popup: { root: 'history-date-popup' } }}
+                  allowClear={false}
+                  minDate={dayjs(Date.now() - HISTORY_RETENTION_MS)}
+                  maxDate={dayjs()}
+                  value={dayjs(customFrom || localInput(window.from))}
+                  onChange={(value) =>
+                    setCustomFrom(value ? localInput(value.valueOf()) : '')
+                  }
+                />
+              </DateField>
+              <DateField htmlFor="history-to">
+                <span>To</span>
+                <RangeInput
+                  id="history-to"
+                  name="to"
+                  aria-label="Range end"
+                  format="DD.MM.YYYY HH:mm"
+                  showTime={{ format: 'HH:mm', use12Hours: false }}
+                  classNames={{ popup: { root: 'history-date-popup' } }}
+                  allowClear={false}
+                  minDate={dayjs(Date.now() - HISTORY_RETENTION_MS)}
+                  maxDate={dayjs()}
+                  value={dayjs(customTo || localInput(window.to))}
+                  onChange={(value) =>
+                    setCustomTo(value ? localInput(value.valueOf()) : '')
+                  }
+                />
+              </DateField>
+              <Control type="submit">Apply range</Control>
+            </RangeFields>
+            {rangeError && <p role="alert">{rangeError}</p>}
+          </form>
+        </ConfigProvider>
       </Card>
-      <Muted>
-        Gaps mean no readings were recorded. Zooming loads more detail; short
-        peaks are kept when viewing longer periods.
-      </Muted>
     </Dashboard>
   );
 };
