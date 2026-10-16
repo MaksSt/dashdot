@@ -7,6 +7,7 @@ import { default as styled } from 'styled-components';
 import { GlassPane } from '../components/glass-pane';
 import { useIsMobile } from '../services/mobile';
 import { usePageData } from '../services/page-data';
+import { useSetting } from '../services/settings';
 import { CpuWidget } from '../widgets/cpu';
 import { ErrorWidget } from '../widgets/error';
 import { GpuWidget } from '../widgets/gpu';
@@ -14,6 +15,7 @@ import { NetworkWidget } from '../widgets/network';
 import { RamWidget } from '../widgets/ram';
 import { ServerWidget } from '../widgets/server';
 import { StorageWidget } from '../widgets/storage';
+import { AdvancedDashboard } from './advanced-dashboard';
 import { ThemedText } from './text';
 
 const containerVariants = {
@@ -36,6 +38,7 @@ const itemVariants: Variants = {
 };
 
 const ContentContainer = styled.div<Transient<{ mobile: boolean }>>`
+  position: relative;
   width: 100vw;
   max-width: 100%;
   min-height: 100vh;
@@ -43,6 +46,25 @@ const ContentContainer = styled.div<Transient<{ mobile: boolean }>>`
   padding: ${({ $mobile }) => ($mobile ? '50px' : '7vh')} ${({ $mobile }) =>
     $mobile ? '25px' : '4vw'};
   display: flex;
+`;
+
+const ModeButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 4vw;
+  z-index: 5;
+  min-width: 104px;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid ${({ theme }) => theme.colors.text}66;
+  border-radius: 12px;
+  background: ${({ theme }) => theme.colors.surface}dd;
+  color: ${({ theme }) => theme.colors.text};
+  font: inherit;
+  cursor: pointer;
+  &:hover { background: ${({ theme }) => theme.colors.surface}; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.text}; outline-offset: 3px; }
+  @media (max-width: 749px) { right: 25px; min-height: 44px; }
 `;
 
 const FlexContainer = styled(motion.div)<Transient<{ mobile: boolean }>>`
@@ -68,6 +90,7 @@ const ErrorContainer = styled(motion.div)<Transient<{ mobile: boolean }>>`
 
 export const MainWidgetContainer: FC = () => {
   const isMobile = useIsMobile();
+  const [advanced, setAdvanced] = useSetting('advanced', false);
 
   const {
     pageLoaded,
@@ -80,6 +103,7 @@ export const MainWidgetContainer: FC = () => {
     ramLoad,
     networkLoad,
     gpuLoad,
+    historySocket,
   } = usePageData();
 
   const osData = serverInfo?.os;
@@ -164,38 +188,49 @@ export const MainWidgetContainer: FC = () => {
   return (
     <SimpleBar style={{ height: '100%' }}>
       <ContentContainer $mobile={isMobile}>
-        <FlexContainer
-          $mobile={isMobile}
-          variants={containerVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
+        <ModeButton
+          type="button"
+          onClick={() => setAdvanced(!advanced)}
+          aria-pressed={advanced}
         >
-          {config.widget_list.map((widget) => {
-            const currentConfig = configs[widget];
+          {advanced ? 'Normal' : 'Advanced'}
+        </ModeButton>
+        {advanced ? (
+          <AdvancedDashboard config={config} socket={historySocket} />
+        ) : (
+          <FlexContainer
+            $mobile={isMobile}
+            variants={containerVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {config.widget_list.map((widget) => {
+              const currentConfig = configs[widget];
 
-            return (
-              <GlassPane
-                key={widget}
-                variants={itemVariants}
-                layoutId={`widget_${widget}`}
-                grow={currentConfig.grow}
-                minWidth={currentConfig.minWidth}
-              >
-                <currentConfig.Widget
-                  // @ts-expect-error
-                  data={currentConfig.data}
-                  // @ts-expect-error
-                  load={currentConfig.load}
-                  temperature={
-                    widget === 'storage' ? storageTemperature : undefined
-                  }
-                  config={config}
-                />
-              </GlassPane>
-            );
-          })}
-        </FlexContainer>
+              return (
+                <GlassPane
+                  key={widget}
+                  variants={itemVariants}
+                  layoutId={`widget_${widget}`}
+                  grow={currentConfig.grow}
+                  minWidth={currentConfig.minWidth}
+                >
+                  <currentConfig.Widget
+                    // @ts-expect-error
+                    data={currentConfig.data}
+                    // @ts-expect-error
+                    load={currentConfig.load}
+                    temperature={
+                      widget === 'storage' ? storageTemperature : undefined
+                    }
+                    config={config}
+                  />
+                </GlassPane>
+              );
+            })}
+          </FlexContainer>
+        )}
 
         {config.show_dash_version === 'bottom_right' && (
           <ThemedText

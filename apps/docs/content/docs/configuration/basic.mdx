@@ -18,6 +18,53 @@ The available options are: `os`, `cpu`, `storage`, `ram`, `network`, `gpu`.
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | ![Dashboard in normal order](/img/screenshot_darkmode.png) | ![Dashboard in alternate order](/img/screenshot_darkmode_alternate_order.png) |
 
+## Advanced history
+
+The **Advanced** button at the top right opens synchronized history charts for
+CPU/NVMe temperatures, average CPU load, network traffic, and memory usage.
+**Normal** returns to the original dashboard. The selected mode is remembered
+in the browser; single-widget embeds are unchanged.
+
+History is sampled every 10 seconds and retained for **24 hours**. Period buttons,
+zoom/pan controls, drag selection, Ctrl/Command + wheel, and the timeline handles
+change the shared time range. Zooming requests more detail from the server;
+downsampling retains extrema instead of hiding short peaks. Times use the browser's
+local timezone. CPU temperature follows `DASHDOT_CPU_TEMPS_MODE`; NVMe temperature
+is the hottest available drive. Network charts show interface traffic, not the
+periodic Internet speed test. Memory shows active bytes as a percentage of total RAM.
+
+### `DASHDOT_HISTORY_ENABLED`
+
+- type: `boolean`
+- default: `true`
+
+History collection keeps the configured CPU, memory, network, and NVMe sensor
+streams subscribed even with no browser open. Set this to `false` to stop
+historical collection. When enabled it also keeps those streams running if
+`DASHDOT_DISABLE_BACKGROUND_STATS_COLLECTION=true`. Temperature collection still
+requires the respective `DASHDOT_ENABLE_CPU_TEMPS` / `DASHDOT_ENABLE_STORAGE_TEMPS`
+settings and functioning sensors.
+
+### `DASHDOT_HISTORY_DIRECTORY`
+
+- type: `string`
+- default: `/data/history` in containers; `./.dashdot-history` from source
+
+Mount a persistent writable volume at `/data` in Docker/Podman, for example
+`-v dashdot-data:/data`. Use one Dashdot writer per history directory. Daily JSONL
+files are flushed every minute and on graceful shutdown; a forced termination can
+lose the last minute. History is also cached in memory with a bounded sample count.
+Files from expired days are removed; the boundary day's file may contain records
+older than 24 hours, which are excluded from memory and queries. Other filenames
+in this directory are never removed.
+
+History starts accumulating when this version is installed. Restarts reload
+persisted readings, and missing sensors or collection downtime appear as gaps.
+If persistence fails, Advanced displays a warning and collection continues in memory.
+History is served over the existing socket connection, including behind a routing
+subpath; `/history?from=<epoch-ms>&to=<epoch-ms>&points=1000` is additionally
+available when integrations are enabled. Responses are bounded to 2,000 points.
+
 ## `DASHDOT_PORT`
 
 The port where the express backend is running (the backend serves the frontend, so it is the same port for both).

@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { urlJoin } from '@dashdot/common';
+import {
+  type HistoryRequest,
+  type HistoryResult,
+  urlJoin,
+} from '@dashdot/common';
 import compression from 'compression';
 import cors from 'cors';
 import cronParser from 'cronstrue';
@@ -13,6 +17,7 @@ import { Server } from 'socket.io';
 import { CONFIG } from './config';
 import getNetworkInfo from './data/network';
 import { getDynamicServerInfo } from './dynamic-info';
+import { startHistory } from './record-history';
 import {
   setupHostSpecific,
   setupNetworking,
@@ -37,6 +42,7 @@ const io = new Server(server, {
       },
   path: `/${urlJoin(CONFIG.routing_path, '/socket')}`,
 });
+let history: Awaited<ReturnType<typeof startHistory>> | undefined;
 
 if (!CONFIG.disable_integrations) {
   app.use(cors());
@@ -100,9 +106,27 @@ server.listen(CONFIG.port, async () => {
   await setupOsVersion();
   await loadStaticServerInfo();
   const obs = getDynamicServerInfo();
+  if (CONFIG.history_enabled) history = await startHistory(obs);
 
   // Allow integrations
   if (!CONFIG.disable_integrations) {
+    router.get('/history', (req, res) => {
+      if (!history) {
+        res.status(503).send({ error: 'History collection is disabled.' });
+        return;
+      }
+      try {
+        res.send(
+          history.store.query({
+            from: Number(req.query.from ?? Date.now() - 3_600_000),
+            to: Number(req.query.to ?? Date.now()),
+            points: Number(req.query.points ?? 1000),
+          }),
+        );
+      } catch (error) {
+        res.status(400).send({ error: (error as Error).message });
+      }
+    });
     router.get('/load/cpu', async (_, res) => {
       res.send(await obs.cpu.getCurrentValue());
     });
@@ -126,6 +150,29 @@ server.listen(CONFIG.port, async () => {
   // Send current system status
   io.on('connection', (socket) => {
     const subscriptions: Unsubscribable[] = [];
+    socket.on(
+      'history',
+      (request: HistoryRequest, reply: (result: HistoryResult) => void) => {
+        if (typeof reply !== 'function') return;
+        if (!history) {
+          reply({ error: 'History collection is disabled.' });
+          return;
+        }
+        if (
+          !request ||
+          typeof request.from !== 'number' ||
+          typeof request.to !== 'number'
+        ) {
+          reply({ error: 'Choose a valid time range.' });
+          return;
+        }
+        try {
+          reply(history.store.query(request));
+        } catch (error) {
+          reply({ error: (error as Error).message });
+        }
+      },
+    );
 
     subscriptions.push(
       getStaticServerInfoObs().subscribe((staticInfo) => {
@@ -218,7 +265,19 @@ process.on('unhandledRejection', (e) => {
   process.exit(1);
 });
 
-process.on('SIGINT', () => {
-  console.info('SIGINT signal received.');
+let shuttingDown = false;
+const shutdown = async () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  io.close();
+  server.close();
+  await history?.stop();
+  tearDownHostSpecific();
   process.exit(0);
+};
+process.on('SIGINT', () => {
+  void shutdown();
+});
+process.on('SIGTERM', () => {
+  void shutdown();
 });

@@ -41,6 +41,12 @@ export const CONFIG: Config = {
   disable_integrations: penv('DISABLE_INTEGRATIONS') === 'true',
   disable_background_stats_collection:
     penv('DISABLE_BACKGROUND_STATS_COLLECTION') === 'true',
+  history_enabled: penv('HISTORY_ENABLED') !== 'false',
+  history_directory:
+    penv('HISTORY_DIRECTORY') ??
+    (penv('RUNNING_IN_DOCKER') === 'true'
+      ? '/data/history'
+      : './.dashdot-history'),
 
   show_dash_version: (penv('SHOW_DASH_VERSION') as any) ?? 'icon_hover',
   show_host: penv('SHOW_HOST') === 'true',

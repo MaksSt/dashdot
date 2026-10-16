@@ -21,6 +21,7 @@ const getFullyQualifiedSocket = (): Socket => {
 
 export const usePageData = () => {
   const [pageLoaded, setPageLoaded] = useState(false);
+  const [historySocket, setHistorySocket] = useState<Socket>();
   const [socketError, setSocketError] = useState(false);
   const [serverInfo, setServerInfo] = useState<ServerInfo | undefined>();
   const [cpuLoad, setCpuLoad] = useState<CpuLoad[]>([]);
@@ -35,6 +36,7 @@ export const usePageData = () => {
 
   useEffect(() => {
     const socket = getFullyQualifiedSocket();
+    setHistorySocket(socket);
 
     socket.on('static-info', (data) => {
       setServerInfo(data);
@@ -135,5 +137,6 @@ export const usePageData = () => {
     gpuLoad,
     storageLoad,
     storageTemperature,
+    historySocket,
   };
 };

@@ -45,6 +45,7 @@ yarn-error.log
 testem.log
 /typings
 .turbo
+.dashdot-history
 
 # System Files
 .DS_Store
