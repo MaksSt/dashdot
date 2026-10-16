@@ -15,6 +15,7 @@ RUN \
     dmidecode \
     coreutils \
     util-linux \
+    device-mapper \
     lm-sensors \
     speedtest-cli &&\
   if [ "$TARGETPLATFORM" = "linux/amd64" ] || [ "$(uname -m)" = "x86_64" ]; \

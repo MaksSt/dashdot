@@ -7,6 +7,16 @@ tags:
 
 ## Options
 
+On Linux, storage usage includes allocated data blocks in active LVM thin pools
+backed by a single physical disk (for example, Proxmox `local-lvm`). Shared blocks
+and snapshots are counted once per pool; mounted thin volumes are not counted
+again as filesystems. This requires `dmsetup` and access to the host `/dev` and
+`/sys` directories in containers. The standard image includes `dmsetup`.
+If device-mapper access is unavailable, only filesystem usage is reported.
+Pools spanning multiple physical disks are not included because their aggregate
+counters cannot identify how much space is used on each disk. Pool metadata and
+other LVM reservations are not included in allocated data usage.
+
 ### `DASHDOT_STORAGE_LABEL_LIST`
 
 Selects which data is shown in the storage widget.

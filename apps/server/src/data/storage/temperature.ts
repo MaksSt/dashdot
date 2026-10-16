@@ -88,7 +88,7 @@ const readGlobalHwmon = async (controller: string): Promise<number | null> => {
     const matchingTemperature = getMaxTemperature(matchingReadings);
     if (matchingTemperature != null) return matchingTemperature;
 
-    return sensors.length === 1 ? sensors[0].temperature : null;
+    return sensors.length === 1 ? (sensors[0]?.temperature ?? null) : null;
   } catch (_error) {
     return null;
   }

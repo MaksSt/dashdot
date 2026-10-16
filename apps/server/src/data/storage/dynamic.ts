@@ -3,6 +3,7 @@ import * as si from 'systeminformation';
 import { CONFIG } from '../../config';
 import { getStaticServerInfo } from '../../static-info';
 import { fromHost, PLATFORM_IS_WINDOWS } from '../../utils';
+import readThinPoolUsage, { type ThinPoolUsage } from './thin-pool';
 
 type Block = si.Systeminformation.BlockDevicesData;
 type Size = si.Systeminformation.FsSizeData;
@@ -15,6 +16,7 @@ export class DynamicStorageMapper {
     private layout: StorageInfo,
     private blocks: Block[],
     private sizes: Size[],
+    private thinPools: ThinPoolUsage[] = [],
   ) {
     this.validSizes = this.getValidSizes();
   }
@@ -64,6 +66,7 @@ export class DynamicStorageMapper {
     deviceBlocks: Block[],
     diskSize: number,
     isHost: boolean,
+    thinPools: ThinPoolUsage[],
   ) {
     const sizes = this.validSizes.filter((size) =>
       deviceBlocks.some((block) => {
@@ -79,14 +82,23 @@ export class DynamicStorageMapper {
       }),
     );
 
-    if (sizes.length === 0) {
+    if (sizes.length === 0 && thinPools.length === 0) {
       return -1;
     }
 
-    const calculatedSize = sumUp(sizes, 'used');
+    const calculatedSize =
+      sumUp(
+        sizes.filter(
+          (size) =>
+            !thinPools.some((pool) =>
+              pool.mountedFilesystems.includes(size.fs),
+            ),
+        ),
+        'used',
+      ) + sumUp(thinPools, 'used');
     const isLvm = deviceBlocks.some(({ fsType }) => fsType === 'LVM2_member');
 
-    if (isLvm) {
+    if (isLvm || thinPools.length > 0) {
       return calculatedSize;
     }
 
@@ -110,7 +122,12 @@ export class DynamicStorageMapper {
 
       const isHost = deviceBlocks.some(({ mount }) => this.isRootMount(mount));
 
-      return this.getSizeForBlocks(deviceBlocks, size, isHost);
+      const thinPools = this.thinPools.filter((pool) =>
+        pool.disks.every((device) =>
+          disks.some((disk) => disk.device === device),
+        ),
+      );
+      return this.getSizeForBlocks(deviceBlocks, size, isHost, thinPools);
     });
   }
 }
@@ -124,5 +141,6 @@ export default async (): Promise<StorageLoad> => {
     svInfo.storage,
     blocks,
     sizes,
+    await readThinPoolUsage(sizes, blocks),
   ).getMappedLayout();
 };
