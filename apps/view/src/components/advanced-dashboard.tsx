@@ -141,7 +141,7 @@ const DateField = styled.label`
 const RangeInput = styled(DatePicker<Dayjs>)`
   width: 100%; min-height: 46px; padding: 10px 13px;
   background: ${({ theme }) => theme.colors.text}06;
-  border-color: ${({ theme }) => theme.colors.text}44;
+  border-color: ${({ theme }) => `${theme.colors.text}${theme.dark ? '66' : '99'}`};
   input { font-variant-numeric: tabular-nums; }
   &:focus-within { outline: 2px solid ${({ theme }) => theme.colors.text}; outline-offset: 2px; }
   @media (max-width: 749px) { input { font-size: 16px; } }
